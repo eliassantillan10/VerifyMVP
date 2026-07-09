@@ -1,39 +1,77 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
-export interface HealthResponse {
-  status: "ok";
-  service: string;
-  database: "postgresql";
+export type TopicOption =
+  | "variables"
+  | "conditionals"
+  | "loops"
+  | "functions"
+  | "arrays"
+  | "strings";
+
+export type ProblemType =
+  | "solution comparison"
+  | "specification checking"
+  | "debugging";
+
+export interface TeacherSettings {
+  coverTopics: TopicOption[];
+  emphasizeTopics: TopicOption[];
+  problemTypes: ProblemType[];
 }
 
-function isHealthResponse(value: unknown): value is HealthResponse {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const payload = value as Record<string, unknown>;
-  return (
-    payload.status === "ok" &&
-    typeof payload.service === "string" &&
-    payload.database === "postgresql"
-  );
+export interface CandidateSolution {
+  id: string;
+  label: string;
+  code: string;
 }
 
-export async function getHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${apiBaseUrl}/api/health/`, {
+export interface GameTask {
+  id: string;
+  prompt: string;
+  specifications: string;
+  candidate_solutions: CandidateSolution[];
+  correct_solution_id: string;
+  explanation: string;
+}
+
+export interface GeneratedGame {
+  title: string;
+  tasks: GameTask[];
+  scoring: {
+    correctness_points: number;
+    time_bonus_points: number;
+    fast_answer_threshold_ms: number;
+  };
+}
+
+export interface GeneratedGameResponse {
+  settings: {
+    cover_topics: TopicOption[];
+    emphasize_topics: TopicOption[];
+    problem_types: ProblemType[];
+  };
+  game: GeneratedGame;
+}
+
+export async function generateGame(
+  settings: TeacherSettings,
+): Promise<GeneratedGameResponse> {
+  const response = await fetch(`${apiBaseUrl}/api/games/generate/`, {
+    method: "POST",
     headers: {
       Accept: "application/json",
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      cover_topics: settings.coverTopics,
+      emphasize_topics: settings.emphasizeTopics,
+      problem_types: settings.problemTypes,
+    }),
   });
 
   if (!response.ok) {
-    throw new Error(`Health check failed with status ${response.status}`);
+    throw new Error(`Game generation failed with status ${response.status}`);
   }
 
-  const payload: unknown = await response.json();
-  if (!isHealthResponse(payload)) {
-    throw new Error("Health check returned an unexpected response");
-  }
-
-  return payload;
+  return (await response.json()) as GeneratedGameResponse;
 }
