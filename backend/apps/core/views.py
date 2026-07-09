@@ -3,6 +3,7 @@ import random
 from dataclasses import dataclass
 
 from django.http import HttpRequest, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 
@@ -104,6 +105,7 @@ def _build_task(topic: str, emphasize: str, problem_type: str, index: int) -> di
     }
 
 
+@csrf_exempt
 @require_POST
 def generate_game(_request: HttpRequest) -> JsonResponse:
     settings = _parse_settings(_request)

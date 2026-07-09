@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -33,25 +33,23 @@ describe("App", () => {
   });
 
   it("generates a game from teacher settings and renders the student flow", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            settings: {
-              cover_topics: ["loops", "functions"],
-              emphasize_topics: ["conditionals"],
-              problem_types: ["solution comparison"],
-            },
-            game: generatedGame,
-          }),
-          {
-            headers: { "Content-Type": "application/json" },
-            status: 200,
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          settings: {
+            cover_topics: ["loops", "functions"],
+            emphasize_topics: ["conditionals"],
+            problem_types: ["solution comparison"],
           },
-        );
-      }),
-    );
+          game: generatedGame,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     vi.spyOn(performance, "now")
       .mockReturnValueOnce(1000)
@@ -65,6 +63,18 @@ describe("App", () => {
     expect(
       await screen.findByRole("heading", { name: "CS1 Solution Spotlight" }),
     ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/games/generate/", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        cover_topics: ["loops", "functions"],
+        emphasize_topics: ["conditionals"],
+        problem_types: ["solution comparison"],
+      }),
+    });
     expect(screen.getAllByText("Task 1 of 1")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: /Solution A/ }));
