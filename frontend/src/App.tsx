@@ -10,6 +10,7 @@ import {
   type TopicOption,
 } from "./api";
 import "./App.css";
+import { formatElapsedSeconds } from "./formatElapsedSeconds";
 
 type SessionState =
   | { status: "idle" }
@@ -332,7 +333,7 @@ export default function App() {
                 {feedback.isCorrect ? "Correct" : "Incorrect"}
               </div>
               <p>
-                You answered in {feedback.answeredInMs}ms and selected{" "}
+                You answered in {formatElapsedSeconds(feedback.answeredInMs)} and selected{" "}
                 {feedback.candidateId || "no option"}.
               </p>
               <p>{feedback.explanation}</p>

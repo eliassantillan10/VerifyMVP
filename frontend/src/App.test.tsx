@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { formatElapsedSeconds } from "./formatElapsedSeconds";
 
 const generatedGame = {
   title: "CS1 Solution Spotlight",
@@ -11,9 +12,13 @@ const generatedGame = {
       prompt: "Does the best solution satisfy the specification?",
       specifications: "A function should return the larger of two values.",
       candidate_solutions: [
-        { id: "A", label: "Solution A", code: "return max(a, b)" },
-        { id: "B", label: "Solution B", code: "return a" },
-        { id: "C", label: "Solution C", code: "return b" },
+        {
+          id: "A",
+          label: "Solution A",
+          code: "int larger(int a, int b) { return std::max(a, b); }",
+        },
+        { id: "B", label: "Solution B", code: "int larger(int a, int b) { return a; }" },
+        { id: "C", label: "Solution C", code: "int larger(int a, int b) { return b; }" },
       ],
       correct_solution_id: "A",
       explanation: "Solution A satisfies the specification.",
@@ -51,10 +56,8 @@ describe("App", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    vi.spyOn(performance, "now")
-      .mockReturnValueOnce(1000)
-      .mockReturnValueOnce(2000)
-      .mockReturnValueOnce(2500);
+    let currentTime = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => currentTime);
 
     render(<App />);
 
@@ -78,12 +81,13 @@ describe("App", () => {
     expect(screen.getAllByText("Task 1 of 1")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: /Solution A/ }));
+    currentTime = 2500;
     fireEvent.click(screen.getByRole("button", { name: "Submit answer" }));
 
     const feedback = await screen.findByText("Correct");
     expect(feedback).toBeInTheDocument();
     expect(screen.getByText("Solution A satisfies the specification.")).toBeInTheDocument();
-    expect(screen.getByText(/You answered in .*selected A\./)).toBeInTheDocument();
+    expect(screen.getByText(/You answered in 1.5 seconds and selected A\./)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Finish game" }));
 
@@ -103,5 +107,13 @@ describe("App", () => {
     expect(
       await screen.findByRole("alert"),
     ).toHaveTextContent("Game generation failed with status 500");
+  });
+});
+
+describe("formatElapsedSeconds", () => {
+  it("formats milliseconds as readable seconds", () => {
+    expect(formatElapsedSeconds(250)).toBe("0.25 seconds");
+    expect(formatElapsedSeconds(1000)).toBe("1 second");
+    expect(formatElapsedSeconds(1500)).toBe("1.5 seconds");
   });
 });
