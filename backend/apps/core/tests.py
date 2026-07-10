@@ -37,16 +37,39 @@ class GameGenerationTests(SimpleTestCase):
 
         first_task = payload["game"]["tasks"][0]
         self.assertIn("specifications", first_task)
-        self.assertEqual(first_task["correct_solution_id"], "A")
         self.assertEqual(len(first_task["candidate_solutions"]), 3)
         self.assertIn("explanation", first_task)
 
-    def post_game_generation(self, client=None):
+        correct_ids = {
+            task["correct_solution_id"] for task in payload["game"]["tasks"]
+        }
+        self.assertGreater(len(correct_ids), 1)
+
+        for task in payload["game"]["tasks"]:
+            candidate_ids = {
+                candidate["id"] for candidate in task["candidate_solutions"]
+            }
+            self.assertIn(task["correct_solution_id"], candidate_ids)
+            correct_candidate = next(
+                candidate
+                for candidate in task["candidate_solutions"]
+                if candidate["id"] == task["correct_solution_id"]
+            )
+            self.assertIn("return true;", correct_candidate["code"])
+
+            for candidate in task["candidate_solutions"]:
+                self.assertIn("bool check_", candidate["code"])
+                self.assertNotIn("def check_", candidate["code"])
+                if candidate["id"] != task["correct_solution_id"]:
+                    self.assertNotIn("return true;", candidate["code"])
+
+    def post_game_generation(self, client=None, payload=None):
         test_client = client or self.client
         return test_client.post(
             reverse("generate-game"),
             data=json.dumps(
-                {
+                payload
+                or {
                     "cover_topics": ["loops", "functions"],
                     "emphasize_topics": ["arrays"],
                     "problem_types": ["solution comparison"],
@@ -60,6 +83,22 @@ class GameGenerationTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assert_game_response_contract(response.json())
+
+    def test_generate_game_randomizes_answers_for_variables_solution_comparison(self):
+        response = self.post_game_generation(
+            payload={
+                "cover_topics": ["variables"],
+                "emphasize_topics": ["variables"],
+                "problem_types": ["solution comparison"],
+            }
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        correct_ids = {
+            task["correct_solution_id"] for task in payload["game"]["tasks"]
+        }
+        self.assertGreater(len(correct_ids), 1)
 
     def test_generate_game_allows_csrf_enforced_json_post_without_token(self):
         csrf_enforced_client = Client(enforce_csrf_checks=True)
