@@ -21,7 +21,7 @@ body {
 }
 
 button,
-select {
+input {
   font: inherit;
 }
 
@@ -47,7 +47,7 @@ button:disabled {
 }
 
 button:focus-visible,
-select:focus-visible {
+input:focus-visible {
   outline: 3px solid #8fd3ff;
   outline-offset: 2px;
 }
@@ -142,27 +142,51 @@ h1 {
   align-items: center;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
+.topic-checklist {
+  margin: 1rem 0 0;
+  border: 0;
+  padding: 0;
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.topic-checklist legend {
   color: rgba(243, 239, 229, 0.9);
+  font-weight: 700;
 }
 
-select {
-  min-height: 10rem;
+.topic-options {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.topic-option {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.75rem;
   border: 1px solid rgba(243, 239, 229, 0.14);
-  border-radius: 18px;
-  background: rgba(17, 24, 39, 0.92);
-  color: #f3efe5;
-  padding: 0.85rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0.55rem 0.75rem;
+  color: rgba(243, 239, 229, 0.9);
+  cursor: pointer;
+}
+
+.topic-option:has(input:checked) {
+  border-color: #8fd3ff;
+  background: rgba(143, 211, 255, 0.12);
+}
+
+.topic-option input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: #8fd3ff;
+}
+
+.field-help {
+  margin: 0.5rem 0 0;
+  color: rgba(243, 239, 229, 0.68);
+  font-size: 0.9rem;
 }
 
 .selection-summary {
@@ -272,7 +296,6 @@ select {
 
 @media (max-width: 900px) {
   .hero,
-  .settings-grid,
   .selection-summary {
     grid-template-columns: 1fr;
   }
