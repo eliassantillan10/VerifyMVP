@@ -1,22 +1,108 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
-export type TopicOption =
-  | "variables"
-  | "conditionals"
-  | "loops"
-  | "functions"
-  | "arrays"
-  | "strings";
+export const topicOptions = [
+  {
+    id: "variables",
+    label: "Variables",
+  },
+  {
+    id: "primitive-data-types",
+    label: "Primitive data types",
+  },
+  {
+    id: "operations",
+    label: "Operations",
+  },
+  {
+    id: "iostream",
+    label: "iostream input/output",
+  },
+  {
+    id: "if",
+    label: "if statements",
+  },
+  {
+    id: "else-if",
+    label: "else if statements",
+  },
+  {
+    id: "else",
+    label: "else statements",
+  },
+  {
+    id: "switch",
+    label: "switch statements",
+  },
+  {
+    id: "compound-boolean-expressions",
+    label: "Compound boolean expressions",
+  },
+  {
+    id: "order-of-precedence",
+    label: "Order of precedence",
+  },
+  {
+    id: "while-loops",
+    label: "while loops",
+  },
+  {
+    id: "do-while-loops",
+    label: "do-while loops",
+  },
+  {
+    id: "strings",
+    label: "string methods and manipulation",
+  },
+  {
+    id: "for-loops",
+    label: "for loops",
+  },
+  {
+    id: "for-each-loops",
+    label: "for-each loops",
+  },
+  {
+    id: "arrays",
+    label: "arrays",
+  },
+  {
+    id: "vectors",
+    label: "vectors",
+  },
+  {
+    id: "functions",
+    label: "functions and function prototypes",
+  },
+  {
+    id: "pass-by-reference",
+    label: "pass-by-reference",
+  },
+  {
+    id: "pass-by-value",
+    label: "pass-by-value",
+  },
+  {
+    id: "fstream",
+    label: "fstream file input/output",
+  },
+  {
+    id: "structs",
+    label: "structs",
+  },
+  {
+    id: "classes",
+    label: "classes",
+  },
+  {
+    id: "pointers",
+    label: "pointers",
+  },
+] as const;
 
-export type ProblemType =
-  | "solution comparison"
-  | "specification checking"
-  | "debugging";
+export type TopicOption = (typeof topicOptions)[number]["id"];
 
-export interface TeacherSettings {
+export interface StudentSettings {
   coverTopics: TopicOption[];
-  emphasizeTopics: TopicOption[];
-  problemTypes: ProblemType[];
 }
 
 export interface CandidateSolution {
@@ -48,13 +134,12 @@ export interface GeneratedGameResponse {
   settings: {
     cover_topics: TopicOption[];
     emphasize_topics: TopicOption[];
-    problem_types: ProblemType[];
   };
   game: GeneratedGame;
 }
 
 export async function generateGame(
-  settings: TeacherSettings,
+  settings: StudentSettings,
 ): Promise<GeneratedGameResponse> {
   const response = await fetch(`${apiBaseUrl}/api/games/generate/`, {
     method: "POST",
@@ -64,8 +149,6 @@ export async function generateGame(
     },
     body: JSON.stringify({
       cover_topics: settings.coverTopics,
-      emphasize_topics: settings.emphasizeTopics,
-      problem_types: settings.problemTypes,
     }),
   });
 

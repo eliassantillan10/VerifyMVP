@@ -5,9 +5,9 @@ import {
   type CandidateSolution,
   type GeneratedGame,
   type GameTask,
-  type ProblemType,
-  type TeacherSettings,
+  type StudentSettings,
   type TopicOption,
+  topicOptions,
 } from "./api";
 import "./App.css";
 import { formatElapsedSeconds } from "./formatElapsedSeconds";
@@ -19,26 +19,9 @@ type SessionState =
   | { status: "finished"; game: GeneratedGame; score: number; total: number }
   | { status: "error"; message: string };
 
-const topicOptions: TopicOption[] = [
-  "variables",
-  "conditionals",
-  "loops",
-  "functions",
-  "arrays",
-  "strings",
-];
-
-const problemTypeOptions: ProblemType[] = [
-  "solution comparison",
-  "specification checking",
-  "debugging",
-];
-
-function defaultSettings(): TeacherSettings {
+function defaultSettings(): StudentSettings {
   return {
-    coverTopics: ["loops", "functions"],
-    emphasizeTopics: ["conditionals"],
-    problemTypes: ["solution comparison"],
+    coverTopics: [],
   };
 }
 
@@ -50,7 +33,7 @@ function chooseCandidate(
 }
 
 export default function App() {
-  const [settings, setSettings] = useState<TeacherSettings>(defaultSettings);
+  const [settings, setSettings] = useState<StudentSettings>(defaultSettings);
   const [session, setSession] = useState<SessionState>({ status: "idle" });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedCandidate, setSelectedCandidate] = useState("");
@@ -66,6 +49,7 @@ export default function App() {
     session.status === "ready" || session.status === "finished"
       ? session.game
       : undefined;
+  const hasRequiredSelections = settings.coverTopics.length > 0;
 
   const currentTask = useMemo(() => {
     if (session.status !== "ready") {
@@ -75,6 +59,10 @@ export default function App() {
   }, [currentIndex, session]);
 
   async function handleGenerateGame() {
+    if (!hasRequiredSelections) {
+      return;
+    }
+
     setSession({ status: "generating" });
     setFeedback(null);
     setCurrentIndex(0);
@@ -90,6 +78,14 @@ export default function App() {
         error instanceof Error ? error.message : "Game generation failed";
       setSession({ status: "error", message });
     }
+  }
+
+  function toggleTopic(topic: TopicOption) {
+    setSettings((current) => ({
+      coverTopics: current.coverTopics.includes(topic)
+        ? current.coverTopics.filter((selectedTopic) => selectedTopic !== topic)
+        : [...current.coverTopics, topic],
+    }));
   }
 
   function submitAnswer() {
@@ -145,12 +141,11 @@ export default function App() {
     <main className="app-shell">
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow">CS1 teacher authoring flow</p>
-          <h1>Generate a practice game from your course goals.</h1>
+          <p className="eyebrow">CS1 practice game</p>
+          <h1>Create a practice game for what you know.</h1>
           <p className="lede">
-            Choose the topics to cover, the topics to emphasize, and the kind of
-            solution-checking tasks you want. Students then play through one
-            task at a time and get immediate feedback.
+            Pick the topics you have learned, then play through solution
+            comparison tasks with immediate feedback.
           </p>
         </div>
         <div className="score-card" aria-live="polite">
@@ -166,103 +161,38 @@ export default function App() {
         </div>
       </section>
 
-      <section className="panel" aria-labelledby="teacher-title">
+      <section className="panel" aria-labelledby="creator-title">
         <div className="panel-header">
           <div>
-            <p className="eyebrow">Teacher settings</p>
-            <h2 id="teacher-title">Author the game</h2>
+            <p className="eyebrow">Your topics</p>
+            <h2 id="creator-title">Create your practice game</h2>
           </div>
           <button
             type="button"
             onClick={handleGenerateGame}
-            disabled={session.status === "generating"}
+            disabled={session.status === "generating" || !hasRequiredSelections}
           >
             {session.status === "generating" ? "Generating..." : "Generate game"}
           </button>
         </div>
 
-        <div className="settings-grid">
-          <label>
-            Topics to cover
-            <select
-              multiple
-              value={settings.coverTopics}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  coverTopics: Array.from(event.target.selectedOptions).map(
-                    (option) => option.value as TopicOption,
-                  ),
-                }))
-              }
-            >
-              {topicOptions.map((topic) => (
-                <option value={topic} key={topic}>
-                  {topic}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Topics to emphasize
-            <select
-              multiple
-              value={settings.emphasizeTopics}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  emphasizeTopics: Array.from(event.target.selectedOptions).map(
-                    (option) => option.value as TopicOption,
-                  ),
-                }))
-              }
-            >
-              {topicOptions.map((topic) => (
-                <option value={topic} key={topic}>
-                  {topic}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Problem types
-            <select
-              multiple
-              value={settings.problemTypes}
-              onChange={(event) =>
-                setSettings((current) => ({
-                  ...current,
-                  problemTypes: Array.from(event.target.selectedOptions).map(
-                    (option) => option.value as ProblemType,
-                  ),
-                }))
-              }
-            >
-              {problemTypeOptions.map((problemType) => (
-                <option value={problemType} key={problemType}>
-                  {problemType}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="selection-summary">
-          <div>
-            <span>Covering</span>
-            <strong>{settings.coverTopics.join(", ")}</strong>
+        <fieldset className="topic-checklist">
+          <legend>Topics to cover</legend>
+          <p className="field-help">Choose one or more topics to begin.</p>
+          <div className="topic-options">
+            {topicOptions.map((topic) => (
+              <label className="topic-option" htmlFor={`topic-${topic.id}`} key={topic.id}>
+                <input
+                  checked={settings.coverTopics.includes(topic.id)}
+                  id={`topic-${topic.id}`}
+                  onChange={() => toggleTopic(topic.id)}
+                  type="checkbox"
+                />
+                <span>{topic.label}</span>
+              </label>
+            ))}
           </div>
-          <div>
-            <span>Emphasizing</span>
-            <strong>{settings.emphasizeTopics.join(", ")}</strong>
-          </div>
-          <div>
-            <span>Problem style</span>
-            <strong>{settings.problemTypes.join(", ")}</strong>
-          </div>
-        </div>
+        </fieldset>
       </section>
 
       {session.status === "error" ? (
