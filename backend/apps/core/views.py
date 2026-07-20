@@ -4,6 +4,7 @@ from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from apps.core.case_breaker import grade_challenge, issue_challenge
 from apps.core.game_generation import build_game_response, normalize_settings_payload
 
 
@@ -35,3 +36,27 @@ def generate_game(_request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": str(error)}, status=400)
 
     return JsonResponse(build_game_response(settings))
+
+
+@csrf_exempt
+@require_POST
+def case_breaker_challenge(request: HttpRequest) -> JsonResponse:
+    payload = _parse_payload(request)
+    try:
+        challenge = issue_challenge(payload.get("learner_profile"))
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse({"challenge": challenge})
+
+
+@csrf_exempt
+@require_POST
+def case_breaker_grade(request: HttpRequest) -> JsonResponse:
+    payload = _parse_payload(request)
+    try:
+        result = grade_challenge(
+            payload.get("challenge_token"), payload.get("test_case")
+        )
+    except ValueError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse(result)

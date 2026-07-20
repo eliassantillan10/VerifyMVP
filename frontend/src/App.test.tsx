@@ -2,122 +2,57 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import { topicOptions } from "./api";
-import { formatElapsedSeconds } from "./formatElapsedSeconds";
 
-const expectedTopics = [
-  ["variables", "Variables"],
-  ["primitive-data-types", "Primitive data types"],
-  ["operations", "Operations"],
-  ["iostream", "iostream input/output"],
-  ["if", "if statements"],
-  ["else-if", "else if statements"],
-  ["else", "else statements"],
-  ["switch", "switch statements"],
-  ["compound-boolean-expressions", "Compound boolean expressions"],
-  ["order-of-precedence", "Order of precedence"],
-  ["while-loops", "while loops"],
-  ["do-while-loops", "do-while loops"],
-  ["strings", "string methods and manipulation"],
-  ["for-loops", "for loops"],
-  ["for-each-loops", "for-each loops"],
-  ["arrays", "arrays"],
-  ["vectors", "vectors"],
-  ["functions", "functions and function prototypes"],
-  ["pass-by-reference", "pass-by-reference"],
-  ["pass-by-value", "pass-by-value"],
-  ["fstream", "fstream file input/output"],
-  ["structs", "structs"],
-  ["classes", "classes"],
-  ["pointers", "pointers"],
-] as const;
-
-const generatedGame = {
-  title: "CS1 Solution Spotlight",
-  tasks: [
-    {
-      id: "task-1",
-      prompt: "Choose the best implementation.",
-      specifications: "Use the selected topic correctly.",
-      candidate_solutions: [
-        { id: "A", label: "Solution A", code: "return true;" },
-        { id: "B", label: "Solution B", code: "return false;" },
-        { id: "C", label: "Solution C", code: "return value;" },
-      ],
-      correct_solution_id: "A",
-      explanation: "Solution A satisfies the requirement.",
-    },
+const challenge = {
+  challenge_token: "signed-token", topic: "if", topic_label: "if statements",
+  specification: "Return true only inside [low, high].", prompt: "Find an input that breaks the code.",
+  code: "bool isAllowed(int value, int low, int high) { return value >= low || value <= high; }",
+  input_schema: [
+    { name: "value", label: "Value", description: "The value to check." },
+    { name: "low", label: "Lower bound", description: "The lowest allowed value." },
+    { name: "high", label: "Upper bound", description: "The highest allowed value." },
   ],
-  scoring: {
-    correctness_points: 100,
-    time_bonus_points: 25,
-    fast_answer_threshold_ms: 8000,
-  },
 };
 
 describe("App", () => {
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); document.cookie = "case_breaker_progress=; Max-Age=0; Path=/"; });
 
-  it("renders the exact atomic topic catalog as a checkbox list", () => {
-    expect(topicOptions.map(({ id, label }) => [id, label])).toEqual(expectedTopics);
-
-    render(<App />);
-
-    expect(screen.getByRole("group", { name: "Topics to cover" })).toBeInTheDocument();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(expectedTopics.length);
-    expect(screen.queryByLabelText("Topics to emphasize")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Problem types")).not.toBeInTheDocument();
-    expect(screen.queryByText(/teacher/i)).not.toBeInTheDocument();
-  });
-
-  it("enables generation after selecting a topic and sends only cover topics", async () => {
-    const fetchMock = vi.fn(async () => new Response(
-      JSON.stringify({
-        settings: { cover_topics: ["arrays"], emphasize_topics: [] },
-        game: generatedGame,
-      }),
-      { headers: { "Content-Type": "application/json" }, status: 200 },
-    ));
+  it("creates one hidden-oracle challenge and unlocks feedback after a failed test", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ is_breaking: false, hint: "Check a boundary." }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-
     render(<App />);
-
-    const generateButton = screen.getByRole("button", { name: "Generate game" });
-    expect(generateButton).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "arrays" }));
-    expect(generateButton).toBeEnabled();
-
-    fireEvent.click(generateButton);
-    expect(await screen.findByRole("heading", { name: "CS1 Solution Spotlight" })).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith("/api/games/generate/", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ cover_topics: ["arrays"] }),
-    });
+    expect(screen.queryByText("Topics to cover")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hint unlocked/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "New challenge" }));
+    expect(await screen.findByRole("heading", { name: "Find the breaking case" })).toBeInTheDocument();
+    expect(fetchMock.mock.calls[0]).toEqual([
+      "/api/case-breaker/challenges/",
+      expect.objectContaining({ body: JSON.stringify({ learner_profile: {} }) }),
+    ]);
+    expect(screen.queryByText(/explanation/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Lower bound"), { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Upper bound"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test this case" }));
+    expect(await screen.findByText("Hint unlocked")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/case-breaker/grade/", expect.objectContaining({ body: JSON.stringify({ challenge_token: "signed-token", test_case: { value: 5, low: 0, high: 10 } }) }));
   });
 
-  it("keeps selected topics after a failed generation", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 500 })));
+  it("reveals the explanation only after a breaking test and records progress", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ is_breaking: true, expected_output: false, actual_output: true, explanation: "The OR accepts values outside the range." }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
     render(<App />);
-
-    const arrays = screen.getByRole("checkbox", { name: "arrays" });
-    fireEvent.click(arrays);
-    fireEvent.click(screen.getByRole("button", { name: "Generate game" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Game generation failed with status 500");
-    expect(arrays).toBeChecked();
-  });
-});
-
-describe("formatElapsedSeconds", () => {
-  it("formats milliseconds as readable seconds", () => {
-    expect(formatElapsedSeconds(250)).toBe("0.25 seconds");
-    expect(formatElapsedSeconds(1000)).toBe("1 second");
-    expect(formatElapsedSeconds(1500)).toBe("1.5 seconds");
+    fireEvent.click(screen.getByRole("button", { name: "New challenge" }));
+    await screen.findByRole("heading", { name: "Find the breaking case" });
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "11" } });
+    fireEvent.change(screen.getByLabelText("Lower bound"), { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Upper bound"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test this case" }));
+    expect(await screen.findByText("The OR accepts values outside the range.")).toBeInTheDocument();
+    expect(document.cookie).toContain("case_breaker_progress=");
   });
 });

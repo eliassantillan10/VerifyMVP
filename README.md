@@ -37,8 +37,9 @@ and GitHub Actions quality gates.
 
 3. Open the frontend at `http://localhost:5173`.
 
-The backend API runs at `http://localhost:8000`, and the initial health
-contract is `GET /api/health/`.
+The backend API runs at `http://localhost:8000`. Docker also starts a local
+Ollama service and downloads the Case Breaker authoring model on first launch
+(about 2 GB). The initial health contract is `GET /api/health/`.
 
 ## Commands
 
