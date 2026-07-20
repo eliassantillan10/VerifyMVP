@@ -100,6 +100,53 @@ class HealthEndpointTests(SimpleTestCase):
         )
 
 
+class CaseBreakerEndpointTests(SimpleTestCase):
+    def test_challenge_hides_the_oracle_and_grades_a_counterexample(self):
+        response = self.client.post(
+            reverse("case-breaker-challenge"),
+            data=json.dumps({"learner_profile": {"if": {"attempts": 1, "passes": 0}}}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        challenge = response.json()["challenge"]
+        self.assertIn(challenge["topic"], TOPIC_LABELS)
+        self.assertIn("code", challenge)
+        self.assertIn("input_schema", challenge)
+        self.assertNotIn("explanation", challenge)
+        self.assertNotIn("hints", challenge)
+        self.assertNotIn("expected_output", challenge)
+
+        failed = self.client.post(
+            reverse("case-breaker-grade"),
+            data=json.dumps(
+                {
+                    "challenge_token": challenge["challenge_token"],
+                    "test_case": {"value": 5, "low": 0, "high": 10},
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(failed.status_code, 200)
+        self.assertFalse(failed.json()["is_breaking"])
+        self.assertIn("hint", failed.json())
+        self.assertNotIn("explanation", failed.json())
+
+        passed = self.client.post(
+            reverse("case-breaker-grade"),
+            data=json.dumps(
+                {
+                    "challenge_token": challenge["challenge_token"],
+                    "test_case": {"value": 11, "low": 0, "high": 10},
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(passed.status_code, 200)
+        self.assertTrue(passed.json()["is_breaking"])
+        self.assertIn("explanation", passed.json())
+
+
 class GameGenerationTests(SimpleTestCase):
     def test_topic_contract_contains_exactly_twenty_four_atomic_cpp_topics(self):
         self.assertEqual(CS1_DEFAULT_TOPICS, list(EXPECTED_TOPIC_LABELS))

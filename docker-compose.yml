@@ -27,6 +27,9 @@ services:
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CASE_BREAKER_LLM_ENABLED: ${CASE_BREAKER_LLM_ENABLED:-true}
+      CASE_BREAKER_LLM_MODEL: ${CASE_BREAKER_LLM_MODEL:-llama3.2:3b-instruct-q4_K_M}
+      OLLAMA_BASE_URL: http://ollama:11434
     command: >
       sh -c "python manage.py migrate --noinput &&
       gunicorn config.wsgi:application --bind 0.0.0.0:8000"
@@ -46,5 +49,17 @@ services:
     ports:
       - "5173:5173"
 
+  ollama:
+    image: ollama/ollama:latest
+    environment:
+      CASE_BREAKER_LLM_MODEL: ${CASE_BREAKER_LLM_MODEL:-llama3.2:3b-instruct-q4_K_M}
+    volumes:
+      - ollama-data:/root/.ollama
+    command: >
+      sh -c "ollama serve & sleep 2 && ollama pull $${CASE_BREAKER_LLM_MODEL:-llama3.2:3b-instruct-q4_K_M} && wait"
+    ports:
+      - "11434:11434"
+
 volumes:
   postgres-data:
+  ollama-data:
