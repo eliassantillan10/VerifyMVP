@@ -81,13 +81,20 @@ input:focus-visible {
 
 .eyebrow,
 .task-label,
-.selection-summary span,
-.score-card p {
+.selection-summary span {
   margin: 0;
   color: #f0bf7f;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.78rem;
+}
+
+.score-card p {
+  margin: 0;
+  color: #f0bf7f;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 1rem;
 }
 
 h1,
@@ -219,6 +226,33 @@ h1 {
 .game-panel {
   display: grid;
   gap: 1rem;
+}
+
+.empty-game {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.empty-game h2,
+.empty-game p {
+  margin-bottom: 0.5rem;
+}
+
+.empty-game p {
+  margin-bottom: 0;
+  color: rgba(243, 239, 229, 0.72);
+}
+
+.game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.game-actions button + button {
+  background: transparent;
+  color: #f3efe5;
 }
 
 .pill-row {
@@ -355,7 +389,8 @@ pre {
   }
 
   .panel-header,
-  .action-row {
+  .action-row,
+  .game-actions {
     align-items: flex-start;
     flex-direction: column;
   }
