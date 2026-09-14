@@ -21,7 +21,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -47,7 +48,8 @@ button:disabled {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #8fd3ff;
   outline-offset: 2px;
 }
@@ -253,6 +255,85 @@ h1 {
 .game-actions button + button {
   background: transparent;
   color: #f3efe5;
+}
+
+.coach-panel {
+  display: grid;
+  gap: 0.75rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.practice-panel {
+  display: grid;
+  gap: 0.75rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem;
+}
+
+.practice-panel h3,
+.practice-panel p,
+.practice-panel label {
+  margin: 0;
+}
+
+.practice-panel-header {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.hint-button {
+  background: transparent;
+  color: #f3efe5;
+}
+
+.practice-panel textarea {
+  box-sizing: border-box;
+  min-height: 3.75rem;
+  max-width: 34rem;
+  border: 1px solid rgba(243, 239, 229, 0.2);
+  border-radius: 10px;
+  background: rgba(7, 13, 24, 0.88);
+  color: #f3efe5;
+  padding: 0.65rem;
+  resize: vertical;
+}
+
+.hint-template {
+  border-left: 3px solid #f0bf7f;
+  padding-left: 0.75rem;
+}
+
+.grade-reply {
+  border-left: 3px solid #8fd3ff;
+  padding-left: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.coach-panel h3,
+.coach-panel p,
+.coach-panel label {
+  margin: 0;
+}
+
+.coach-panel textarea {
+  min-height: 6rem;
+  border: 1px solid rgba(243, 239, 229, 0.2);
+  border-radius: 10px;
+  background: rgba(7, 13, 24, 0.88);
+  color: #f3efe5;
+  padding: 0.65rem;
+  resize: vertical;
+}
+
+.coach-reply {
+  border-left: 3px solid #8fd3ff;
+  padding-left: 0.75rem;
+  white-space: pre-wrap;
 }
 
 .pill-row {

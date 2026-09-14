@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 
@@ -99,3 +100,42 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CASE_BREAKER_COACH_ENABLED = env_bool("CASE_BREAKER_COACH_ENABLED", False)
+CASE_BREAKER_GRADING_ENABLED = env_bool("CASE_BREAKER_GRADING_ENABLED", False)
+LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234").rstrip("/")
+LM_STUDIO_API_TOKEN = os.getenv("LM_STUDIO_API_TOKEN", "")
+LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "")
+LM_STUDIO_GRADING_MODEL = os.getenv("LM_STUDIO_GRADING_MODEL", "")
+LM_STUDIO_TIMEOUT_SECONDS = int(os.getenv("LM_STUDIO_TIMEOUT_SECONDS", "20"))
+CASE_BREAKER_COACH_MAX_INPUT_CHARS = int(
+    os.getenv("CASE_BREAKER_COACH_MAX_INPUT_CHARS", "2000")
+)
+CASE_BREAKER_COACH_MAX_OUTPUT_TOKENS = int(
+    os.getenv("CASE_BREAKER_COACH_MAX_OUTPUT_TOKENS", "500")
+)
+CASE_BREAKER_GRADING_MAX_INPUT_CHARS = int(
+    os.getenv("CASE_BREAKER_GRADING_MAX_INPUT_CHARS", "2000")
+)
+CASE_BREAKER_GRADING_MAX_OUTPUT_TOKENS = int(
+    os.getenv("CASE_BREAKER_GRADING_MAX_OUTPUT_TOKENS", "200")
+)
+
+if CASE_BREAKER_COACH_ENABLED or CASE_BREAKER_GRADING_ENABLED:
+    parsed_lm_studio_url = urlparse(LM_STUDIO_BASE_URL)
+    if (
+        parsed_lm_studio_url.scheme != "http"
+        or parsed_lm_studio_url.hostname
+        not in {"localhost", "127.0.0.1", "host.docker.internal"}
+    ):
+        raise RuntimeError(
+            "LM_STUDIO_BASE_URL must point to a configured local LM Studio host."
+        )
+    if CASE_BREAKER_COACH_ENABLED and not LM_STUDIO_MODEL:
+        raise RuntimeError(
+            "LM_STUDIO_MODEL must be set when the Case Breaker coach is enabled."
+        )
+    if CASE_BREAKER_GRADING_ENABLED and not LM_STUDIO_GRADING_MODEL:
+        raise RuntimeError(
+            "LM_STUDIO_GRADING_MODEL must be set when Case Breaker grading is enabled."
+        )
