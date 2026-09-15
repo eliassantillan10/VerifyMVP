@@ -54,10 +54,13 @@ often use a different ID):
 ```dotenv
 CASE_BREAKER_GRADING_ENABLED=true
 LM_STUDIO_GRADING_MODEL=qwen/qwen3-4b-2507
+LM_STUDIO_GRADING_TIMEOUT_SECONDS=90
 ```
 
 Grading is an assessment, not proof, and the model may return `UNCLEAR` with
-its explanation. To enable the separate coach, also set
+its explanation. Local models can take longer than ordinary web requests to
+process a prompt, so grading has its own 90-second timeout by default. To
+enable the separate coach, also set
 `CASE_BREAKER_COACH_ENABLED=true` and `LM_STUDIO_MODEL`.
 
 For host tools, verify the server with:
@@ -80,6 +83,13 @@ networking, LM Studio's bind address, and local firewall rules. If either probe
 does not list the configured model ID, correct the loaded model or
 `LM_STUDIO_GRADING_MODEL`. If LM Studio uses token authentication, set
 `LM_STUDIO_API_TOKEN`; do not expose the server, model weights, or token.
+
+The grading model must also return strict JSON-schema output. Before enabling
+grading for learners, submit a small grading request in the app and confirm the
+response contains a nonempty JSON object with `verdict` and `message`. A model
+that returns an empty or malformed completion is reachable but incompatible
+with this grading contract; the app reports that condition separately from a
+stopped server or timeout.
 
 ## Commands
 

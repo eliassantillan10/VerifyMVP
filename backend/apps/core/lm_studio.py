@@ -16,6 +16,10 @@ class LMStudioUnavailable(Exception):
     """Raised when the configured local model cannot provide a usable reply."""
 
 
+class LMStudioInvalidResponse(LMStudioUnavailable):
+    """Raised when a reachable local model returns unusable grading output."""
+
+
 VALID_GRADE_VERDICTS = {"EXPOSES_FLAW", "DOES_NOT_EXPOSE_FLAW", "UNCLEAR"}
 
 
@@ -144,21 +148,20 @@ def grade_test_case(problem: Problem, test_case: str) -> dict[str, str]:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=settings.LM_STUDIO_TIMEOUT_SECONDS) as response:  # nosec B310: configured local host is allowlisted in settings
+        with urlopen(
+            request, timeout=settings.LM_STUDIO_GRADING_TIMEOUT_SECONDS
+        ) as response:  # nosec B310: configured local host is allowlisted in settings
             payload: Any = json.loads(response.read().decode())
-        content = payload["choices"][0]["message"]["content"]
-        result = json.loads(content)
-    except (
-        HTTPError,
-        IndexError,
-        KeyError,
-        OSError,
-        TimeoutError,
-        TypeError,
-        URLError,
-        ValueError,
-    ) as error:
+    except (HTTPError, OSError, TimeoutError, URLError, ValueError) as error:
         raise LMStudioUnavailable from error
+
+    try:
+        content = payload["choices"][0]["message"]["content"]
+        if not isinstance(content, str) or not content.strip():
+            raise LMStudioInvalidResponse
+        result = json.loads(content)
+    except (IndexError, KeyError, TypeError, ValueError) as error:
+        raise LMStudioInvalidResponse from error
 
     if (
         not isinstance(result, dict)
@@ -167,9 +170,9 @@ def grade_test_case(problem: Problem, test_case: str) -> dict[str, str]:
         or not isinstance(result.get("message"), str)
         or not result["message"].strip()
     ):
-        raise LMStudioUnavailable
+        raise LMStudioInvalidResponse
     message = result["message"].strip()[:500]
     hidden_context = (problem.flaw.strip(), problem.example.strip())
     if any(context and context in message for context in hidden_context):
-        raise LMStudioUnavailable
+        raise LMStudioInvalidResponse
     return {"verdict": result["verdict"], "message": message}
