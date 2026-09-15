@@ -358,6 +358,14 @@ class LMStudioGradingTests(SimpleTestCase):
         self.assertEqual(request_body["model"], "qwen/qwen3-4b-2507")
         self.assertEqual(request_body["response_format"]["type"], "json_schema")
         self.assertNotIn("tools", request_body)
+        rubric = request_body["messages"][0]["content"]
+        self.assertIn("trace the submitted input through the reviewed code", rubric)
+        self.assertIn("EXPOSES_FLAW when the input triggers the reviewed defect", rubric)
+        self.assertIn(
+            "If your explanation identifies that the input triggers the defect, "
+            "return EXPOSES_FLAW.",
+            rubric,
+        )
 
     @patch("apps.core.lm_studio.urlopen")
     def test_grading_uses_its_own_timeout(self, urlopen):

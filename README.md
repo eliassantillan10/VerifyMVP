@@ -57,8 +57,9 @@ LM_STUDIO_GRADING_MODEL=qwen/qwen3-4b-2507
 LM_STUDIO_GRADING_TIMEOUT_SECONDS=90
 ```
 
-Grading is an assessment, not proof, and the model may return `UNCLEAR` with
-its explanation. Local models can take longer than ordinary web requests to
+Grading is an assessment, not proof, and the model may return `UNCLEAR` only
+when the submitted input or reviewed context cannot be assessed reliably.
+Local models can take longer than ordinary web requests to
 process a prompt, so grading has its own 90-second timeout by default. To
 enable the separate coach, also set
 `CASE_BREAKER_COACH_ENABLED=true` and `LM_STUDIO_MODEL`.
