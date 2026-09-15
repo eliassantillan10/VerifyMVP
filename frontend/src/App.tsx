@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   askCoach,
@@ -24,8 +24,22 @@ export default function App() {
   const [isTestCaseDraftSubmitted, setIsTestCaseDraftSubmitted] = useState(false);
   const [grade, setGrade] = useState<GradeReply | null>(null);
   const [isHintVisible, setIsHintVisible] = useState(false);
+  const [gradingElapsedSeconds, setGradingElapsedSeconds] = useState(0);
+  const gradeRequestId = useRef(0);
+  const gradingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopGradingTimer() {
+    if (gradingTimer.current !== null) {
+      clearInterval(gradingTimer.current);
+      gradingTimer.current = null;
+    }
+  }
+
+  useEffect(() => () => stopGradingTimer(), []);
 
   async function getChallenge() {
+    gradeRequestId.current += 1;
+    stopGradingTimer(); setGradingElapsedSeconds(0);
     setChallenge(null); setCoachEnabled(false); setGradingEnabled(false); setCoachReply(""); setLearnerText(""); setTestCaseDraft(""); setIsTestCaseDraftSubmitted(false); setGrade(null); setIsHintVisible(false); setMessage(""); setState("generating");
     try {
       const next = await generateChallenge();
@@ -52,11 +66,23 @@ export default function App() {
       setIsTestCaseDraftSubmitted(true);
       return;
     }
+    const requestId = ++gradeRequestId.current;
+    stopGradingTimer(); setGradingElapsedSeconds(0);
+    gradingTimer.current = setInterval(() => {
+      setGradingElapsedSeconds((seconds) => seconds + 1);
+    }, 1000);
     setState("grading"); setMessage(""); setGrade(null); setIsTestCaseDraftSubmitted(false);
     try {
-      setGrade(await gradeTestCase(challenge.id, testCaseDraft)); setState("ready");
+      const reply = await gradeTestCase(challenge.id, testCaseDraft);
+      if (gradeRequestId.current === requestId) {
+        setGrade(reply); setState("ready");
+      }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not reach the local grader."); setState("ready");
+      if (gradeRequestId.current === requestId) {
+        setMessage(error instanceof Error ? error.message : "Could not reach the local grader."); setState("ready");
+      }
+    } finally {
+      if (gradeRequestId.current === requestId) stopGradingTimer();
     }
   }
 
@@ -79,7 +105,7 @@ export default function App() {
           <p>{gradingEnabled ? "Submit an input for feedback from the required local LM Studio grader. The result is an assessment, not proof." : "Draft an input that you think would expose a flaw in the code's logic. This draft stays in your browser for now."}</p>
           <label htmlFor="test-case-draft">Your test case draft</label>
           <textarea id="test-case-draft" rows={2} value={testCaseDraft} onChange={(event) => { setTestCaseDraft(event.target.value); setIsTestCaseDraftSubmitted(false); setGrade(null); }} placeholder="Submit a test case that will expose the code's logic." />
-          <div className="game-actions"><button type="button" disabled={!testCaseDraft.trim() || state === "grading"} onClick={submitTestCaseDraft}>{state === "grading" ? "Assessing..." : "Submit"}</button><button className="hint-button" type="button" aria-controls={isHintVisible ? "practice-hint" : undefined} aria-expanded={isHintVisible} onClick={() => setIsHintVisible((visible) => !visible)}>Hint</button></div>
+          <div className="game-actions"><button type="button" disabled={!testCaseDraft.trim() || state === "grading"} aria-label={state === "grading" ? `Evaluating. ${gradingElapsedSeconds} seconds elapsed.` : undefined} onClick={submitTestCaseDraft}>{state === "grading" ? <>Evaluating<span className="evaluation-dots" aria-hidden="true">...</span> {gradingElapsedSeconds}s</> : "Submit"}</button><button className="hint-button" type="button" aria-controls={isHintVisible ? "practice-hint" : undefined} aria-expanded={isHintVisible} onClick={() => setIsHintVisible((visible) => !visible)}>Hint</button></div>
           {isTestCaseDraftSubmitted ? <p role="status">Draft saved locally.</p> : null}
           {grade ? <p className="grade-reply" role="status" aria-live="polite"><strong>{grade.verdict === "EXPOSES_FLAW" ? "Likely exposes the flaw." : grade.verdict === "DOES_NOT_EXPOSE_FLAW" ? "Likely does not expose the flaw." : "The model's assessment is unclear."}</strong> {grade.message}</p> : null}
           {isHintVisible ? <p id="practice-hint" className="hint-template" aria-live="polite">Look for the smallest input that makes the code disagree with the problem statement.</p> : null}

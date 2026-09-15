@@ -11,7 +11,7 @@ const challenge = {
 };
 
 describe("App", () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
   it("shows a problem without revealing its answer and provides local practice controls", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ challenge, coachEnabled: false }), { status: 200 }));
@@ -76,6 +76,29 @@ describe("App", () => {
     );
   });
 
+  it("shows elapsed evaluation time while a grade request is pending", async () => {
+    let resolveGrade: (response: Response) => void;
+    const gradeResponse = new Promise<Response>((resolve) => { resolveGrade = resolve; });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge, coachEnabled: false, gradingEnabled: true }), { status: 200 }))
+      .mockReturnValueOnce(gradeResponse);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Begin Investigation" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: "Your test case draft" }), { target: { value: "3 4" } });
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(screen.getByRole("button", { name: "Evaluating. 0 seconds elapsed." })).toHaveTextContent("Evaluating... 0s");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(screen.getByRole("button", { name: "Evaluating. 5 seconds elapsed." })).toHaveTextContent("Evaluating... 5s");
+
+    resolveGrade!(new Response(JSON.stringify({ grade: { challengeId: challenge.id, verdict: "EXPOSES_FLAW", message: "This input is likely to expose the flaw." } }), { status: 200 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByText("Likely exposes the flaw.")).toBeInTheDocument();
+  });
+
   it("shows the model's explanation when its assessment is unclear", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ challenge, coachEnabled: false, gradingEnabled: true }), { status: 200 }))
@@ -89,6 +112,21 @@ describe("App", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("The model's assessment is unclear.");
     expect(screen.getByRole("status")).toHaveTextContent("The supplied input does not isolate the condition.");
+  });
+
+  it("shows the structured-output compatibility guidance from the grader", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ challenge, coachEnabled: false, gradingEnabled: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "The local LM Studio grader returned an unusable response. Check that the configured model supports structured JSON output, then retry." }), { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Begin Investigation" }));
+    fireEvent.change(await screen.findByRole("textbox", { name: "Your test case draft" }), { target: { value: "example" } });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("supports structured JSON output");
+    expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
   });
 
   it("requests another display-only case", async () => {

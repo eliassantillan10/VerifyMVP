@@ -13,7 +13,11 @@ from apps.core.game_generation import (
     GameSettings,
     build_game_response,
 )
-from apps.core.lm_studio import LMStudioUnavailable, grade_test_case
+from apps.core.lm_studio import (
+    LMStudioInvalidResponse,
+    LMStudioUnavailable,
+    grade_test_case,
+)
 from apps.core.models import Problem
 
 EXPECTED_TOPIC_LABELS = {
@@ -249,6 +253,30 @@ class CaseBreakerEndpointTests(TestCase):
             },
         )
 
+    @patch("apps.core.views.grade_test_case", side_effect=LMStudioInvalidResponse)
+    def test_grade_endpoint_reports_an_invalid_local_model_response(
+        self, _grade_test_case
+    ):
+        problem = self.create_problem()
+        with self.settings(CASE_BREAKER_GRADING_ENABLED=True):
+            response = self.client.post(
+                reverse("case-breaker-grade"),
+                data=json.dumps({"challengeId": problem.slug, "testCase": "10"}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "error": (
+                    "The local LM Studio grader returned an unusable response. "
+                    "Check that the configured model supports structured JSON output, "
+                    "then retry."
+                )
+            },
+        )
+
     def test_coach_endpoint_requires_the_optional_feature_to_be_enabled(self):
         problem = self.create_problem()
         response = self.client.post(
@@ -330,6 +358,36 @@ class LMStudioGradingTests(SimpleTestCase):
         self.assertEqual(request_body["model"], "qwen/qwen3-4b-2507")
         self.assertEqual(request_body["response_format"]["type"], "json_schema")
         self.assertNotIn("tools", request_body)
+        rubric = request_body["messages"][0]["content"]
+        self.assertIn("trace the submitted input through the reviewed code", rubric)
+        self.assertIn("EXPOSES_FLAW when the input triggers the reviewed defect", rubric)
+        self.assertIn(
+            "If your explanation identifies that the input triggers the defect, "
+            "return EXPOSES_FLAW.",
+            rubric,
+        )
+
+    @patch("apps.core.lm_studio.urlopen")
+    def test_grading_uses_its_own_timeout(self, urlopen):
+        response = urlopen.return_value.__enter__.return_value
+        response.read.return_value = json.dumps(
+            {"choices": [{"message": {"content": json.dumps({"verdict": "UNCLEAR", "message": "More detail is needed."})}}]}
+        ).encode()
+
+        with self.settings(LM_STUDIO_GRADING_TIMEOUT_SECONDS=90):
+            grade_test_case(self.problem(), "10")
+
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 90)
+
+    @patch("apps.core.lm_studio.urlopen")
+    def test_grading_rejects_empty_structured_model_content(self, urlopen):
+        response = urlopen.return_value.__enter__.return_value
+        response.read.return_value = json.dumps(
+            {"choices": [{"message": {"content": ""}}]}
+        ).encode()
+
+        with self.assertRaises(LMStudioInvalidResponse):
+            grade_test_case(self.problem(), "10")
 
     @patch("apps.core.lm_studio.urlopen")
     def test_grading_preserves_an_unclear_model_explanation(self, urlopen):

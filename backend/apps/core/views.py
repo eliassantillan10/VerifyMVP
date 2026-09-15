@@ -8,7 +8,11 @@ from django.views.decorators.http import require_POST
 from apps.core.case_breaker import issue_challenge
 from apps.core.coach import ask_coach
 from apps.core.game_generation import build_game_response, normalize_settings_payload
-from apps.core.lm_studio import LMStudioUnavailable, grade_test_case
+from apps.core.lm_studio import (
+    LMStudioInvalidResponse,
+    LMStudioUnavailable,
+    grade_test_case,
+)
 from apps.core.models import Problem
 
 
@@ -81,6 +85,17 @@ def case_breaker_grade(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"error": "Case Breaker problem not found."}, status=404)
     try:
         grade = grade_test_case(problem, test_case.strip())
+    except LMStudioInvalidResponse:
+        return JsonResponse(
+            {
+                "error": (
+                    "The local LM Studio grader returned an unusable response. "
+                    "Check that the configured model supports structured JSON output, "
+                    "then retry."
+                )
+            },
+            status=503,
+        )
     except LMStudioUnavailable:
         return JsonResponse(
             {
