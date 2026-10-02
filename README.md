@@ -37,9 +37,60 @@ and GitHub Actions quality gates.
 
 3. Open the frontend at `http://localhost:5173`.
 
-The backend API runs at `http://localhost:8000`. Docker also starts a local
-Ollama service and downloads the Case Breaker authoring model on first launch
-(about 2 GB). The initial health contract is `GET /api/health/`.
+The backend API runs at `http://localhost:8000`. Case Breaker reads reviewed
+problems from PostgreSQL. The initial health contract is `GET /api/health/`.
+
+### LM Studio grading (required when enabled)
+
+LM Studio is the only authority for Case Breaker test-case grades. When
+`CASE_BREAKER_GRADING_ENABLED=true`, load a model and start LM Studio's local
+server before learners submit test cases. The browser never contacts LM Studio
+directly and the service never executes C++.
+
+Load a model that supports structured JSON output, start its local server, and
+configure its exact identifier as shown by LM Studio (downloaded quantizations
+often use a different ID):
+
+```dotenv
+CASE_BREAKER_GRADING_ENABLED=true
+LM_STUDIO_GRADING_MODEL=qwen/qwen3-4b-2507
+LM_STUDIO_GRADING_TIMEOUT_SECONDS=90
+```
+
+Grading is an assessment, not proof, and the model may return `UNCLEAR` only
+when the submitted input or reviewed context cannot be assessed reliably.
+Local models can take longer than ordinary web requests to
+process a prompt, so grading has its own 90-second timeout by default. To
+enable the separate coach, also set
+`CASE_BREAKER_COACH_ENABLED=true` and `LM_STUDIO_MODEL`.
+
+For host tools, verify the server with:
+
+```bash
+curl --fail --silent --show-error http://127.0.0.1:1234/v1/models
+```
+
+Docker Desktop's backend container must use
+`LM_STUDIO_BASE_URL=http://host.docker.internal:1234`, which is the Compose
+default. `127.0.0.1` inside that container refers to the container itself. To
+verify container reachability after `docker compose up --build`, run:
+
+```bash
+docker compose exec -T backend python -c "from urllib.request import urlopen; print(urlopen('http://host.docker.internal:1234/v1/models', timeout=5).read().decode())"
+```
+
+If the host probe works but the container probe fails, check Docker Desktop
+networking, LM Studio's bind address, and local firewall rules. If either probe
+does not list the configured model ID, correct the loaded model or
+`LM_STUDIO_GRADING_MODEL`. If LM Studio uses token authentication, set
+`LM_STUDIO_API_TOKEN`; do not expose the server, model weights, or token.
+
+The grading model must also return strict JSON-schema output. Before enabling
+grading for learners, submit a small grading request in the app and confirm the
+response contains a nonempty JSON object with `verdict` and `message`. A model
+that returns an empty or malformed completion is reachable but incompatible
+with this grading contract; the app reports that condition separately from a
+stopped server or timeout.
 
 ## Commands
 

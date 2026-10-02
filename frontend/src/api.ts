@@ -2,23 +2,33 @@ const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
 export type TopicOption = string;
 
-export interface ChallengeInput { name: string; label: string; description: string }
 export interface Challenge {
-  challenge_token: string;
+  id: string;
   topic: TopicOption;
-  topic_label: string;
-  specification: string;
-  prompt: string;
+  description: string;
   code: string;
-  input_schema: ChallengeInput[];
 }
-export interface GradeResult {
-  is_breaking: boolean;
-  hint?: string;
-  feedback?: string;
-  expected_output?: boolean;
-  actual_output?: boolean;
-  explanation?: string;
+
+interface ChallengeResponse {
+  challenge: Challenge;
+  coachEnabled: boolean;
+  gradingEnabled: boolean;
+}
+
+export type CoachMode = "HINT" | "EXPLAIN" | "REVIEW";
+
+export interface CoachReply {
+  challengeId: string;
+  mode: CoachMode;
+  message: string;
+}
+
+export type GradeVerdict = "EXPOSES_FLAW" | "DOES_NOT_EXPOSE_FLAW" | "UNCLEAR";
+
+export interface GradeReply {
+  challengeId: string;
+  verdict: GradeVerdict;
+  message: string;
 }
 
 async function request<T>(path: string, body: object): Promise<T> {
@@ -32,11 +42,30 @@ async function request<T>(path: string, body: object): Promise<T> {
   return payload;
 }
 
-export async function generateChallenge(learnerProfile: object): Promise<Challenge> {
-  const response = await request<{ challenge: Challenge }>("/api/case-breaker/challenges/", { learner_profile: learnerProfile });
-  return response.challenge;
+export function generateChallenge(): Promise<ChallengeResponse> {
+  return request<ChallengeResponse>("/api/case-breaker/challenges/", {});
 }
 
-export function gradeChallenge(challengeToken: string, testCase: Record<string, number>): Promise<GradeResult> {
-  return request<GradeResult>("/api/case-breaker/grade/", { challenge_token: challengeToken, test_case: testCase });
+export async function askCoach(
+  challengeId: string,
+  mode: CoachMode,
+  learnerText: string,
+): Promise<CoachReply> {
+  const response = await request<{ coach: CoachReply }>("/api/case-breaker/coach/", {
+    challengeId,
+    mode,
+    learnerText,
+  });
+  return response.coach;
+}
+
+export async function gradeTestCase(
+  challengeId: string,
+  testCase: string,
+): Promise<GradeReply> {
+  const response = await request<{ grade: GradeReply }>("/api/case-breaker/grade/", {
+    challengeId,
+    testCase,
+  });
+  return response.grade;
 }

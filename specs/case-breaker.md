@@ -2,20 +2,36 @@
 
 ## Objective
 
-Replace multiple-choice comparison with one counterexample challenge. Llama 3.2
-3B Instruct runs locally through Ollama to author student-facing wording;
-allowlisted backend evaluators remain the grading authority.
+Case Breaker presents randomly selected C++ debugging problems from the
+application database. Learners review the problem description and code; the
+application does not execute C++. When enabled, a host-run LM Studio model is
+the sole authority for feedback on a submitted test case.
 
 ## Contract
 
-- `POST /api/case-breaker/challenges/` accepts an optional learner-progress profile
-  and returns code, specification, typed inputs, and an expiring opaque token; it
-  never includes an oracle, hint, or explanation. No topic selection is required:
-  challenges adapt from progress recorded while playing.
-- `POST /api/case-breaker/grade/` accepts the token and integer inputs. A failed
-  attempt returns a hint; a breaking test returns expected/actual and explanation.
+- `POST /api/case-breaker/challenges/` accepts an empty JSON object and returns
+  a stable problem ID, topic, description, and C++ code.
+- `POST /api/case-breaker/grade/` accepts a `challengeId` and a `testCase` when
+  grading is enabled. It uses the required LM Studio model and returns
+  `EXPOSES_FLAW`, `DOES_NOT_EXPOSE_FLAW`, or `UNCLEAR` plus model feedback.
+- `POST /api/case-breaker/coach/` is an optional backend-mediated LM Studio
+  coach for hints, explanations, and learner-reasoning feedback.
 
-## Local model
+## Grading and Safety
 
-Ollama serves `llama3.2:3b-instruct-q4_K_M`. Its JSON output is constrained to
-copy, validated, and falls back safely. It never executes code or grades answers.
+- The backend seeds and selects one database problem per request. It does not
+  retain browser history or use learner progress for selection.
+- C++ is shown to learners but is never compiled or executed by the service.
+- The backend, not the browser, retrieves the reviewed problem and sends its
+  hidden flaw/example fields to the local grader. Those fields are not returned
+  in grading feedback.
+- Local grading is an assessment, not proof. If its required LM Studio server,
+  configured model, or structured response is unavailable, grading returns
+  `503` rather than inventing a fallback verdict.
+
+## Catalog Maintenance
+
+The previously bundled 280-problem catalog has been removed. Future catalog
+changes should add records through a new reviewed data migration, import path,
+or admin/API workflow with stable IDs and backend tests covering the intended
+database records.

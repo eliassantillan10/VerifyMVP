@@ -1,6 +1,12 @@
 from django.urls import path
 
-from .views import case_breaker_challenge, case_breaker_grade, generate_game, health
+from .views import (
+    case_breaker_challenge,
+    case_breaker_coach,
+    case_breaker_grade,
+    generate_game,
+    health,
+)
 
 urlpatterns = [
     path("health/", health, name="health"),
@@ -11,4 +17,5 @@ urlpatterns = [
         name="case-breaker-challenge",
     ),
     path("case-breaker/grade/", case_breaker_grade, name="case-breaker-grade"),
+    path("case-breaker/coach/", case_breaker_coach, name="case-breaker-coach"),
 ]
